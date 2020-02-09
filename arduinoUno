@@ -1,0 +1,83 @@
+#include <Wire.h> //INCLUSÃO DA BIBLIOTECA NECESSÁRIA
+#include <SPI.h> //INCLUSÃO DE BIBLIOTECA
+#include <MFRC522.h> //INCLUSÃO DE BIBLIOTECA
+#include <Servo.h> 
+#include <virtuabotixRTC.h> // Clock biblioteca
+
+#define SS_PIN 10 //PINO SDA
+#define RST_PIN 9 //PINO DE RESET
+
+virtuabotixRTC myRTC(6, 7, 8);
+MFRC522 rfid(SS_PIN, RST_PIN); //PASSAGEM DE PARÂMETROS REFERENTE AOS PINOS
+Servo myservo;  // create servo object to control a servo
+int pos = 90; // POSIÇÃO INICIAL SERVO MOTOR 
+
+void setup(){
+  Serial.begin(9600); //INICIALIZA A SERIAL
+  Wire.begin(); //INICIALIZA A BIBLIOTECA WIRE
+  SPI.begin(); //INICIALIZA O BARRAMENTO SPI
+  rfid.PCD_Init(); //INICIALIZA MFRC522
+  myservo.attach(3);  // attaches the servo on pin 9 to the servo object
+}
+ 
+void loop() {
+    leituraRfid(); //CHAMA A FUNÇÃO RESPONSÁVEL PELA VALIDAÇÃO DA TAG RFID
+    myRTC.updateTime(); 
+
+   if (myRTC.hours == 21 && myRTC.minutes == 14)  //HORA ON
+   {
+    for (pos = 90; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position 
+  }
+    delay(60000); // Um minuto na posição
+    for (pos = 180; pos >= 90; pos -= 1) { // goes from 180 degrees to 0 degrees
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position
+  }
+    delay(1000); //INTERVALO DE 4 SEGUNDOS
+//    digitalWrite(pinoLedVerde, HIGH); //DESLIGA O LED VERDE
+   }
+
+}
+ 
+//FUNÇÃO DE VALIDAÇÃO DA TAG RFID
+void leituraRfid(){
+  if (!rfid.PICC_IsNewCardPresent() || !rfid.PICC_ReadCardSerial()) //VERIFICA SE O CARTÃO PRESENTE NO LEITOR É DIFERENTE DO ÚLTIMO CARTÃO LIDO. CASO NÃO SEJA, FAZ
+    return; //RETORNA PARA LER NOVAMENTE
+ 
+  /***INICIO BLOCO DE CÓDIGO RESPONSÁVEL POR GERAR A TAG RFID LIDA***/
+  String strID = "";
+  for (byte i = 0; i < 4; i++) {
+    strID +=
+    (rfid.uid.uidByte[i] < 0x10 ? "0" : "") +
+    String(rfid.uid.uidByte[i], HEX) +
+    (i!=3 ? ":" : "");
+  }
+  strID.toUpperCase();
+/***FIM DO BLOCO DE CÓDIGO RESPONSÁVEL POR GERAR A TAG RFID LIDA***/
+ 
+  //O ENDEREÇO "27:41:AA:AB" DEVERÁ SER ALTERADO PARA O ENDEREÇO DA SUA TAG RFID QUE CAPTUROU ANTERIORMENTE
+ if (strID.indexOf("EA:5A:7D:15") >= 0 || strID.indexOf("09:F3:F5:97") >= 0 || strID.indexOf("8A:76:AF:15") >= 0  ) { //SE O ENDEREÇO DA TAG LIDA FOR IGUAL AO ENDEREÇO INFORMADO, FAZ
+
+    for (pos = 90; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position 
+  }
+    delay(10000); // FECHAR APOS X SEGUNDOS
+    for (pos = 180; pos >= 90; pos -= 1) { // goes from 180 degrees to 0 degrees
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+    delay(15);                       // waits 15ms for the servo to reach the position
+  }
+    delay(1000); //INTERVALO  
+
+  }else{ //SENÃO, FAZ (CASO A TAG LIDA NÃO SEJÁ VÁLIDA)
+    delay(1000); ////INTERVALO 
+
+  }
+ 
+  rfid.PICC_HaltA(); //PARADA DA LEITURA DO CARTÃO
+  rfid.PCD_StopCrypto1(); //PARADA DA CRIPTOGRAFIA NO PCD
+  }
